@@ -35,22 +35,40 @@ mouse:
 	cmp  word[mouseClick], 1  	;checa se o mouse foi clicado
 	jne  mouse
 
-	cmp  word[mouseY], 95		;checa se esta na area clicavel y<120
+	cmp  word[mouseY], 90		;checa se esta na area clicavel y<100
 	ja   mouse
 
-	cmp  word[mouseX], 80		;checa se é o botão Abrir
+	cmp  word[mouseX], 86		;checa se é o botão Abrir
 	jbe  func_botao_abrir
 
-	cmp  word[mouseX], 140		;checa se é o botão Sair
+	cmp  word[mouseX], 131		;checa se é o botão Sair
 	jbe  func_botao_sair
 
 	cmp  word[mouseX], 300		;checa se é o botão passa-baixa
 	jbe  func_botao_passa_baixa
 
-	cmp  word[mouseX], 460		;checa se é o botão passa-alta
+	cmp  word[mouseX], 470		;checa se é o botão passa-alta
 	jbe  func_botao_passa_alta
 
 	jmp func_botao_gradiente
+
+func_botao_abrir:
+	call printa_layout
+	mov	 byte[cor], amarelo
+	call printa_abrir
+
+	mov al, 0 ;read only
+	mov dx, filename ;nome do arquivo
+	mov ah, 3dh 
+	int 21h
+
+	mov [file_handler], ax ;atualiza o buffer
+
+	mov word[i], 0
+	mov word[j], 91
+	call plota_imagem
+
+	jmp mouse
 
 func_botao_sair:
 	call printa_layout
@@ -64,19 +82,7 @@ func_botao_sair:
 	int  10h
 	mov  ax,4c00h
 	int  21h
-
-func_botao_abrir:
-	call printa_layout
-	mov	 byte[cor], amarelo
-	call printa_abrir
-
-	call delay
-
-	mov  ah,0   			; set video mode
-	mov  al,[modo_anterior]   	; modo anterior
-	int  10h
-	mov  ax,4c00h
-	int  21h
+	
 
 func_botao_passa_baixa:
 	call printa_layout
@@ -118,17 +124,86 @@ func_botao_gradiente:
 	int  21h
 
 
+plota_imagem:
+	read_one_value:
+		call read ;le o primeiro numero (ex: 5xx)
+		mov al, byte[buffer] ;move o valor pra al
+		sub al, '0' ;transforma pra int
+
+		call read ;le o segundo numero (ex:x5x)
+
+		cmp byte[buffer], ' '
+		je fim_valor ; achou espaco
+
+		mov bl, 10
+		mul bl
+		add al, byte[buffer]
+		sub al, '0'
+
+		call read ;le o terceiro numero (ex:xx5)
+
+		cmp byte[buffer], ' '
+		je fim_valor ; achou espaco
+
+		mov bl, 10
+		mul bl
+		add al, byte[buffer]
+		sub al, '0'
+
+	fim_valor: ;achamos um espaço
+		mov bl, 16 ;apenas 16 tons de cor
+		div bl
+		mov byte[cor], al
+		mov bx, word[i] ;x
+		push bx
+		mov bx, word[j] ;y
+		push bx
+		call plot_xy ;printa o pixel
+		
+		inc word[i] ;joga pro próximo pixel da direita
+		cmp word[i], 300  ;verifica se completou a linha
+		jne read_one_value
+
+		;completou a linha
+		mov word[i], 0
+		
+		inc word[j]
+		cmp word[j], 391
+		je fim_imagem ; completou a imagem
+		jne read_one_value ; so completou a linha
+		
+	fim_imagem: ;todos os numeros foram lidos
+		;fecha o arquivo
+		mov ah, 3eh
+		mov bx, file_handler
+		int 21h
+
+		mov word[i], 0
+		mov word[j], 91
+
+	ret
+
+	read:
+		;le o segundo numero (ex:55x)
+		mov ah, 3fh 
+		mov bx, [file_handler]
+		mov cx, 1 ;ler 1 byte
+		mov dx, buffer
+		int 21h
+
+		ret
+
 printa_layout:
 ;---------LINHAS---------
 	;esquerda
 	mov		byte[cor],branco_intenso	
 	mov		ax,0
 	push		ax
-	mov		ax,10
+	mov		ax,0
 	push		ax
 	mov		ax,0
 	push		ax
-	mov		ax,460
+	mov		ax,479
 	push		ax
 	call		line
 
@@ -136,23 +211,23 @@ printa_layout:
 	mov		byte[cor],branco_intenso	
 	mov		ax,0
 	push		ax
-	mov		ax,460
+	mov		ax,479
 	push		ax
-	mov		ax,620
+	mov		ax,639
 	push		ax
-	mov		ax,460
+	mov		ax,479
 	push		ax
 	call		line
 
 	;direita
 	mov		byte[cor],branco_intenso	
-	mov		ax,620
+	mov		ax,639
 	push		ax
-	mov		ax,460
+	mov		ax,479
 	push		ax
-	mov		ax,620
+	mov		ax,639
 	push		ax
-	mov		ax,10
+	mov		ax,0
 	push		ax
 	call		line
 
@@ -160,77 +235,77 @@ printa_layout:
 	mov		byte[cor],branco_intenso	
 	mov		ax,0
 	push		ax
-	mov		ax,10
+	mov		ax,0
 	push		ax
-	mov		ax,620
+	mov		ax,639
 	push		ax
-	mov		ax,10
+	mov		ax,0
 	push		ax
 	call		line
 
 ;linha separadora baixo	
 	mov		ax,0
 	push		ax
-	mov		ax,85
+	mov		ax,89
 	push		ax
-	mov		ax,620
+	mov		ax,639
 	push		ax
-	mov		ax,85
+	mov		ax,89
 	push		ax
 	call		line
 
 ;linha separadora cima	
 	mov		ax,0
 	push		ax
-	mov		ax,385
+	mov		ax,389
 	push		ax
-	mov		ax,620
+	mov		ax,639
 	push		ax
-	mov		ax,385
+	mov		ax,389
 	push		ax
 	call		line
 
 ;linha separadora meio	
 	mov		ax,300
 	push		ax
-	mov		ax,85
+	mov		ax,89
 	push		ax
 	mov		ax,300
 	push		ax
-	mov		ax,460
+	mov		ax,479
 	push		ax
 	call		line
 
 ;linha separadora abrir_sair	
-	mov		ax,80
+	mov		ax,86
 	push		ax
-	mov		ax,385
+	mov		ax,389
 	push		ax
-	mov		ax,80
+	mov		ax,86
 	push		ax
-	mov		ax,460
+	mov		ax,479
 	push		ax
 	call		line
 
 ;linha separadora sair_baixa	
-	mov		ax,140
+	mov		ax,131
 	push		ax
-	mov		ax,385
+	mov		ax,389
 	push		ax
-	mov		ax,140
+	mov		ax,131
 	push		ax
-	mov		ax,460
+	mov		ax,479
 	push		ax
 	call		line
 
 ;linha separadora alta_gradiente	
-	mov		ax,460
+	mov		ax,470
 	push		ax
-	mov		ax,385
+	mov		ax,389
 	push		ax
-	mov		ax,460
+	mov		ax,470
 	push		ax
-	mov		ax,460
+	mov		ax,479
 	push		ax
 	call		line
 
@@ -239,11 +314,11 @@ printa_layout:
 	mov		byte[cor],branco_intenso	
 	mov		ax,10
 	push		ax
-	mov		ax,18
+	mov		ax,5
 	push		ax
 	mov		ax,10
 	push		ax
-	mov		ax,78
+	mov		ax,84
 	push		ax
 	call		line
 
@@ -251,23 +326,23 @@ printa_layout:
 	mov		byte[cor],branco_intenso	
 	mov		ax,10
 	push		ax
-	mov		ax,78
+	mov		ax,84
 	push		ax
-	mov		ax,610
+	mov		ax,629
 	push		ax
-	mov		ax,78
+	mov		ax,84
 	push		ax
 	call		line
 
 	;direita
 	mov		byte[cor],branco_intenso	
-	mov		ax,610
+	mov		ax,629
 	push		ax
-	mov		ax,78
+	mov		ax,84
 	push		ax
-	mov		ax,610
+	mov		ax,629
 	push		ax
-	mov		ax,18
+	mov		ax,5
 	push		ax
 	call		line
 
@@ -275,11 +350,11 @@ printa_layout:
 	mov		byte[cor],branco_intenso	
 	mov		ax,10
 	push		ax
-	mov		ax,18
+	mov		ax,5
 	push		ax
-	mov		ax,610
+	mov		ax,629
 	push		ax
-	mov		ax,18
+	mov		ax,5
 	push		ax
 	call		line
 
@@ -296,7 +371,7 @@ printa_layout:
 
 ;--------------MENSAGENS--------------
 printa_nome_matricula:
-	mov 	cx,43 ;qtd caracteres
+	mov 	cx,45 ;qtd caracteres
 	mov		bx,0
 	mov		dh,27 ;linha
 	mov		dl,15 ;coluna
@@ -313,8 +388,8 @@ l1:
 printa_abrir:
 	mov 	cx,5 ;qtd caracteres
 	mov		bx,0
-	mov		dh,3 ;linha
-	mov		dl,2 ;coluna
+	mov		dh,2 ;linha
+	mov		dl,3 ;coluna
 
 l2:
 	call	cursor
@@ -328,7 +403,7 @@ l2:
 printa_sair:
 	mov 	cx,4 ;qtd caracteres
 	mov		bx,0
-	mov		dh,3 ;linha
+	mov		dh,2 ;linha
 	mov		dl,12 ;coluna
 
 l3:
@@ -343,7 +418,7 @@ l3:
 printa_passa_baixa:
 	mov 	cx,12 ;qtd caracteres
 	mov		bx,0
-	mov		dh,3 ;linha
+	mov		dh,2 ;linha
 	mov		dl,21 ;coluna
 
 l4:
@@ -358,8 +433,8 @@ l4:
 printa_passa_alta:
 	mov 	cx,11 ;qtd caracteres
 	mov		bx,0
-	mov		dh,3 ;linha
-	mov		dl,42 ;coluna
+	mov		dh,2 ;linha
+	mov		dl,43 ;coluna
 
 l5:
 	call	cursor
@@ -373,8 +448,8 @@ l5:
 printa_gradiente:
 	mov 	cx,9 ;qtd caracteres
 	mov		bx,0
-	mov		dh,3 ;linha
-	mov		dl,63 ;coluna
+	mov		dh,2 ;linha
+	mov		dl,64 ;coluna
 
 l6:
 	call	cursor
@@ -687,11 +762,18 @@ amarelo		equ		14
 branco_intenso	equ		15
 
 modo_anterior	db		0
-linha   	dw  		0
-coluna  	dw  		0
+linha_image_open   	dw  		0
+coluna_image_open  	dw  		0
+i	dw	0
+j	dw	0
 deltax		dw		0
-deltay		dw		0	
-mensagem_nome    	db  		'Humberto Giuri, Sistema Embarcados - 2022/1' ; 43 caracteres
+deltay		dw		0
+
+buffer 		resb 	1
+filename 	db		'original.txt',0
+file_handler		dw		0
+
+mensagem_nome    	db  		'Humberto Giuri, Sistema Embarcados I - 2022/1' ; 45 caracteres
 mensagem_abrir    	db  		'Abrir' ; 5 caracteres
 mensagem_sair    	db  		'Sair' ; 4 caracteres
 mensagem_passa_baixa   	db  	'Passa-Baixas' ; 12 caracteres
