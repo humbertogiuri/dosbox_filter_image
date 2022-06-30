@@ -57,16 +57,22 @@ func_botao_abrir:
 	mov	 byte[cor], amarelo
 	call printa_abrir
 
-	mov ax, 3d00h 		; abre arquivo em read only
+	mov ah, 3dh 		; abre arquivo em read only
 	mov dx, filename	; nome do arquivo
 	int 21h
-	mov [file_handler], ax
 
 	mov [file_handler], ax ;atualiza o buffer
+	jc error_oponing
 
 	mov word[i], 0
-	mov word[j], 91
-	call plota_imagem
+	mov word[j], 390
+	;call plota_imagem_abrir
+	call plota_image_abrir
+	jmp mouse
+
+error_oponing:
+	mov byte[cor], vermelho
+	call printa_erro
 
 	jmp mouse
 
@@ -77,8 +83,8 @@ func_botao_sair:
 
 	call delay
 
-	mov    	ah,08h
-	int     21h
+	;mov    	ah,08h
+	;int     21h
 	mov  ah,0   			; set video mode
 	mov  al,[modo_anterior]   	; modo anterior
 	int  10h
@@ -126,18 +132,20 @@ func_botao_gradiente:
 	int  21h
 
 
-plota_imagem:
-	call read ;le primeiro espaco do arquivo
+plota_image_abrir:
+	call reseta_buffer
 
 	read_one_value:
-		mov ax, 0 ; limpa registrador
-
+		mov ax, 0
 		format_one_char:
-			call read ;le o proximo char
+			call verify_buffer
+			
+			mov bx, [contador]
+			inc word[contador]
 
-			mov dl, byte[buffer]
+			mov dl, byte[buffer + bx + 1]
 			cmp dl, ' '
-			je fim_valor ; achou espaco
+			je end_valor ; achou espaco
 
 			sub dl, '0' ; transforma pro numero
 			mov bl, 10
@@ -146,18 +154,19 @@ plota_imagem:
 
 			loop format_one_char
 
-	fim_valor: ;achamos um espaço
+	end_valor: ;achamos um espaço
 		mov bl, 16 ; apenas 16 tons de cor
 		div bl
 		mov byte[cor], al
 		
-		mov bx, word[i] ;x
+		mov bx, word[i] ;coordenada x
 		push bx
-		mov bx, word[j] ;y
+		mov bx, word[j] ;coordenada y
 		push bx
 		
 		call plot_xy ;printa o pixel
 		
+
 		inc word[i] ;joga pro próximo pixel da direita
 		cmp word[i], 300  ;verifica se completou a linha
 		jne read_one_value
@@ -165,12 +174,12 @@ plota_imagem:
 		;completou a linha
 		mov word[i], 0
 		
-		inc word[j]
-		cmp word[j], 391
-		je fim_imagem ; completou a imagem
+		dec word[j]
+		cmp word[j], 90
+		je end_image ; completou a imagem
 		jne read_one_value ; so completou a linha
 		
-	fim_imagem: ;todos os numeros foram lidos
+	end_image: ;todos os numeros foram lidos
 		mov word[j], 0
 
 		;fecha o arquivo
@@ -179,13 +188,21 @@ plota_imagem:
 		int 21h
 		ret
 
-read:
-	mov ah, 3fh 
-	mov bx, [file_handler]
-	mov cx, 1 ;ler 1 byte
-	mov dx, buffer
-	int 21h
-	ret
+	verify_buffer:
+		cmp word[contador], 53999
+		je reseta_buffer
+
+		ret
+
+	reseta_buffer: 
+		mov word[contador], 0
+		mov ah, 3fh
+		mov bx, [file_handler]
+		mov cx, 54000
+		mov dx, buffer
+		int 21h
+
+		ret
 
 printa_layout:
 ;---------LINHAS---------
@@ -452,6 +469,21 @@ l6:
 	inc     bx			;proximo caracter
 	inc		dl			;avanca a coluna
 	loop    l6
+	ret
+
+printa_erro:
+	mov 	cx,4 ;qtd caracteres
+	mov		bx,0
+	mov		dh,150 ;linha
+	mov		dl,60 ;coluna
+
+l7:
+	call	cursor
+	mov     al,[bx+mensagem_erro]
+	call	caracter
+	inc     bx			;proximo caracter
+	inc		dl			;avanca a coluna
+	loop    l7
 	ret
 ;***************************************************************************
 ;
@@ -760,10 +792,11 @@ linha_image_open   	dw  		0
 coluna_image_open  	dw  		0
 i	dw	0
 j	dw	0
-deltax		dw		0
 deltay		dw		0
+deltax		dw		0
+contador		dw		0
 
-buffer 		resb 	1
+buffer 		resb 	54000
 filename 	db		'entrada.txt'
 file_handler		dw		0
 
@@ -773,6 +806,7 @@ mensagem_sair    	db  		'Sair' ; 4 caracteres
 mensagem_passa_baixa   	db  	'Passa-Baixas' ; 12 caracteres
 mensagem_passa_alta    db  		'Passa-Altas' ; 11 caracteres
 mensagem_gradiente    	db  	'Gradiente' ; 9 caracteres
+mensagem_erro			db		'Erro' ; 4 caracteres
 
 mouseX 		dw 		0
 mouseY 		dw 		0
@@ -781,4 +815,3 @@ mouseClick	dw 		0
 segment stack stack
 		resb 		512
 stacktop:
-
