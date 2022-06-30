@@ -57,10 +57,10 @@ func_botao_abrir:
 	mov	 byte[cor], amarelo
 	call printa_abrir
 
-	mov al, 0 ;read only
-	mov dx, filename ;nome do arquivo
-	mov ah, 3dh 
+	mov ax, 3d00h 		; abre arquivo em read only
+	mov dx, filename	; nome do arquivo
 	int 21h
+	mov [file_handler], ax
 
 	mov [file_handler], ax ;atualiza o buffer
 
@@ -77,6 +77,8 @@ func_botao_sair:
 
 	call delay
 
+	mov    	ah,08h
+	int     21h
 	mov  ah,0   			; set video mode
 	mov  al,[modo_anterior]   	; modo anterior
 	int  10h
@@ -125,39 +127,35 @@ func_botao_gradiente:
 
 
 plota_imagem:
+	call read ;le primeiro espaco do arquivo
+
 	read_one_value:
-		call read ;le o primeiro numero (ex: 5xx)
-		mov al, byte[buffer] ;move o valor pra al
-		sub al, '0' ;transforma pra int
+		mov ax, 0 ; limpa registrador
 
-		call read ;le o segundo numero (ex:x5x)
+		format_one_char:
+			call read ;le o proximo char
 
-		cmp byte[buffer], ' '
-		je fim_valor ; achou espaco
+			mov dl, byte[buffer]
+			cmp dl, ' '
+			je fim_valor ; achou espaco
 
-		mov bl, 10
-		mul bl
-		add al, byte[buffer]
-		sub al, '0'
+			sub dl, '0' ; transforma pro numero
+			mov bl, 10
+			mul bl		; mult al por 10
+			add al, dl
 
-		call read ;le o terceiro numero (ex:xx5)
-
-		cmp byte[buffer], ' '
-		je fim_valor ; achou espaco
-
-		mov bl, 10
-		mul bl
-		add al, byte[buffer]
-		sub al, '0'
+			loop format_one_char
 
 	fim_valor: ;achamos um espaço
-		mov bl, 16 ;apenas 16 tons de cor
+		mov bl, 16 ; apenas 16 tons de cor
 		div bl
 		mov byte[cor], al
+		
 		mov bx, word[i] ;x
 		push bx
 		mov bx, word[j] ;y
 		push bx
+		
 		call plot_xy ;printa o pixel
 		
 		inc word[i] ;joga pro próximo pixel da direita
@@ -173,25 +171,21 @@ plota_imagem:
 		jne read_one_value ; so completou a linha
 		
 	fim_imagem: ;todos os numeros foram lidos
+		mov word[j], 0
+
 		;fecha o arquivo
 		mov ah, 3eh
 		mov bx, file_handler
 		int 21h
-
-		mov word[i], 0
-		mov word[j], 91
-
-	ret
-
-	read:
-		;le o segundo numero (ex:55x)
-		mov ah, 3fh 
-		mov bx, [file_handler]
-		mov cx, 1 ;ler 1 byte
-		mov dx, buffer
-		int 21h
-
 		ret
+
+read:
+	mov ah, 3fh 
+	mov bx, [file_handler]
+	mov cx, 1 ;ler 1 byte
+	mov dx, buffer
+	int 21h
+	ret
 
 printa_layout:
 ;---------LINHAS---------
@@ -770,14 +764,14 @@ deltax		dw		0
 deltay		dw		0
 
 buffer 		resb 	1
-filename 	db		'original.txt',0
+filename 	db		'entrada.txt'
 file_handler		dw		0
 
 mensagem_nome    	db  		'Humberto Giuri, Sistema Embarcados I - 2022/1' ; 45 caracteres
 mensagem_abrir    	db  		'Abrir' ; 5 caracteres
 mensagem_sair    	db  		'Sair' ; 4 caracteres
 mensagem_passa_baixa   	db  	'Passa-Baixas' ; 12 caracteres
-mensagem_passa_alta    db  		'Passa_Altas' ; 11 caracteres
+mensagem_passa_alta    db  		'Passa-Altas' ; 11 caracteres
 mensagem_gradiente    	db  	'Gradiente' ; 9 caracteres
 
 mouseX 		dw 		0
