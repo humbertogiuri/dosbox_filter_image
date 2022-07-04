@@ -58,6 +58,7 @@ func_botao_abrir:
     call printa_abrir
 
     call open_file
+    jc error_opening
 
     mov word[i], 0
     mov word[j], 388
@@ -92,20 +93,20 @@ func_botao_passa_baixa:
     call printa_passa_baixa
 
     call open_file
+    jc error_opening
+
     call plota_passa_baixa
     call close_file
     
     jmp mouse
 
 plota_image_abrir:
-    pusha
     call reseta_buffer
     inc word[contador]
 
     read_one_value:
         mov ax, 0
         mov dx, 0
-        mov cx, 0
         mov bx, 0
 
         format_one_char:
@@ -140,7 +141,7 @@ plota_image_abrir:
         
     end_image: ;todos os numeros foram lidos
         mov word[j], 0
-        popa
+        
         ret
 
     verify_buffer:
@@ -150,122 +151,66 @@ plota_image_abrir:
         ret
 
     reseta_buffer:
-        pusha
+        push ax
+        
         mov word[contador], 0
         mov ah, 3fh
         mov bx, [file_handler]
         mov cx, buffer_size
         mov dx, buffer
         int 21h
-        popa
+        
+        pop ax
         ret
 
 
-read_one_char:
-    pusha
-    mov ax, 0
-    call verify_buffer
-            
-    mov bx, word[contador]
-    mov al, byte[buffer + bx]
-    mov byte[current_char], al
-    inc word[contador]
-    
-    popa
-    ret
-
 plota_passa_baixa:
-    pusha
     mov word[j], 388
-
+    mov word[i], 301
+    
     call reseta_buffer
     inc word[contador]
 
-    aux:
-        call read_line
-        call printa_linha_aux
-        
-        dec word[j]
+    passa_baixa:
+        cmp word[j], 388
+        je pad_top
+
         cmp word[j], 88
-        jne aux
-
-    mov word[j], 0
-    popa
-    ret
+        je pad_bottom
 
 
-read_line: ;le 300 numeros do arquivo
-    pusha
-    mov word[current_col], 0
-    
-    loop_read_line:
-        ;limpando registradores
-        mov ax, 0
-        mov bx, 0
-        mov cx, 0
-        mov dx, 0
+        call one_step_baixa
+        call plota_linha_aux
+        dec word[j]
 
-        one_value_baixa:
-            call read_one_char
-            mov dl, byte[current_char]
+        pad_top:
+            call zera_line_1  
 
-            cmp dl, ' '
-            je put_value
+            call read_line
+            call copy_aux_to_linha2
 
-            sub dl, '0'
-            mov cl, 10
-            mul cl
-            add al, dl
+            call read_line
+            call copy_aux_to_linha3
 
-            loop one_value_baixa
+            call one_step_baixa
+            call plota_linha_aux
+            dec word[j]
 
-        put_value:
-            mov bx, word[current_col]
-            mov byte[linha_aux + bx], al
-            
-            inc word[current_col]
-            
-            cmp word[current_col], 300
-            jne loop_read_line
+            jmp passa_baixa
+        
+        config_pad_bottom:
 
-    mov word[pos_line], 0
-    popa
-    ret
-
-printa_linha_aux:
-    pusha
-    mov word[i], 301
-    mov word[pos_line], 0
-
-    loop_printa_aux:
-        mov ax, 0
-        mov bx, 0
-        mov dx, 0
-
-        mov bx, word[pos_line]
-        mov al, byte[linha_aux + bx]
-        mov byte[intensity], al
-
-        call plot_pixel
-        inc word[i]
-        inc word[pos_line]
-
-        cmp word[pos_line], 300
-        jne loop_printa_aux
-
-    mov word[pos_line], 0
-    popa
     ret
 
 one_step_baixa:
-    pusha
-    mov cx, 300
     mov word[current_col], 1
+    mov word[pos_line], 0
+    call zera_line_aux
 
-    main_loop:
+    loop_one_step:
         mov ax, 0
         mov dx, 0
-        mov word[i], 301
+        mov bx, 0
 
         mov bx, word[current_col]
         inc word[current_col]
@@ -298,15 +243,87 @@ one_step_baixa:
         mov bl, 9
         div bl ; temos o resultado da convolucao em al pra um pixel
 
-        call plot_pixel
-        dec word[j]
-        loop main_loop
+        mov bx, word[pos_line]
+        mov byte[linha_aux + bx], al
 
-    popa
-    ret
+        inc word[pos_line]
+        dec word[j]
+
+        cmp word[current_col], 301
+        jne loop_one_step
     
+    ret
+
+read_one_char:
+    push ax
+    mov ax, 0
+    mov byte[current_char], 0
+    call verify_buffer
+            
+    mov bx, word[contador]
+    mov dl, byte[buffer + bx]
+    mov byte[current_char], dl
+    inc word[contador]
+
+    pop ax
+    ret
+
+read_line: ;le 300 numeros do arquivo
+    mov word[current_col], 0
+    call zera_line_aux
+
+    loop_read_line:
+        ;limpando registradores
+        mov ax, 0
+        mov bx, 0
+        mov dx, 0
+
+        one_value_baixa:
+            call read_one_char
+            mov dl, byte[current_char]
+
+            cmp dl, ' '
+            je put_value
+
+            sub dl, '0'
+            mov cl, 10
+            mul cl
+            add al, dl
+
+            loop one_value_baixa
+
+        put_value:
+            mov bx, word[current_col]
+            mov byte[linha_aux + bx], al
+            
+            inc word[current_col]
+            
+            cmp word[current_col], 300
+            jne loop_read_line
+
+    mov word[pos_line], 0
+    ret
+
+
+plota_linha_aux:
+    mov ax, 0
+    mov bx, 0
+    mov cx, 300
+    mov word[i], 301
+    mov word[pos_line], 0
+
+    printa:
+        mov bx, word[pos_line]
+        mov al, byte[linha_aux + bx]
+        mov byte[intensity], al
+        call plot_pixel
+        inc word[pos_line]
+        inc word[i]
+        loop printa
+    
+    ret
+
 plot_pixel: ; prepara a plotagem de um pixel para a funcao de passa baixa
-    pusha
     mov ax, 0
     mov bx, 0
 
@@ -321,60 +338,121 @@ plot_pixel: ; prepara a plotagem de um pixel para a funcao de passa baixa
     push bx
     
     call plot_xy ;printa o pixel
-    popa
+    
     ret
 
-
-change_aux_line1: ; copia uma linha para outra
+zera_line_aux:
+    push dx
     push bx
     push cx
-    push dx
 
     mov cx, 300
     mov bx, 0
 
     change_pos_1:
-        mov dl, byte[linha_aux + bx]
-        mov byte[linha_1 + bx + 1], dl
+        mov byte[linha_aux + bx], 0
         inc bx
         loop change_pos_1
     
-    pop dx
-    pop cx
+    pop ax
     pop bx
+    pop dx
     ret
 
-change_aux_line2:
-    pusha
+zera_line_1:
+    push dx
+    push bx
+    push cx
 
-    mov cx, 300
+    mov cx, 302
     mov bx, 0
 
     change_pos_2:
-        mov dl, byte[linha_aux + bx]
-        mov byte[linha_2 + bx + 1], dl
+        mov byte[linha_1 + bx], 0
         inc bx
         loop change_pos_2
     
-    popa
+    pop dx
+    pop bx
+    pop cx
     ret
 
-change_aux_line3:
-    pusha
+zera_line_3:
+    push dx
+    push bx
+    push cx
+
+    mov cx, 302
+    mov bx, 0
+
+    change_pos_3:
+        mov byte[linha_3 + bx], 0
+        inc bx
+        loop change_pos_3
+    
+    pop dx
+    pop bx
+    pop cx
+    ret
+
+copy_aux_to_linha1:
+    push dx
+    push bx
+    push cx
 
     mov cx, 300
     mov bx, 0
 
-    change_pos_3:
+    change_pos_4:
         mov dl, byte[linha_aux + bx]
-        mov byte[linha_3 + bx + 1], dl
-        inc bx
-        loop change_pos_3
-    
-    popa
+        mov byte[linha1 + bx + 1], dl
+
+        loop change_pos_4
+
+    pop dx
+    pop bx
+    pop cx
     ret
 
-change_line3_line2:
+copy_aux_to_linha2:
+    push dx
+    push bx
+    push cx
+
+    mov cx, 300
+    mov bx, 0
+
+    change_pos_5:
+        mov dl, byte[linha_aux + bx]
+        mov byte[linha2 + bx + 1], dl
+
+        loop change_pos_5
+
+    pop dx
+    pop bx
+    pop cx
+    ret
+
+copy_aux_to_linha3:
+    push dx
+    push bx
+    push cx
+
+    mov cx, 300
+    mov bx, 0
+
+    change_pos_6:
+        mov dl, byte[linha_aux + bx]
+        mov byte[linha3 + bx + 1], dl
+
+        loop change_pos_6
+
+    pop dx
+    pop bx
+    pop cx
+    ret
+
+copy_line3_to_line2:
     push bx
     push cx
     push dx
@@ -382,7 +460,7 @@ change_line3_line2:
     mov cx, 302
     mov bx, 0
 
-    change_pos_4:
+    change_pos_7:
         mov dl, byte[linha_3 + bx]
         mov byte[linha_2 + bx], dl
         inc bx
@@ -393,7 +471,7 @@ change_line3_line2:
     pop bx
     ret
 
-change_line2_line1:
+copy_line2_to_line1:
     push bx
     push cx
     push dx
@@ -401,80 +479,29 @@ change_line2_line1:
     mov cx, 302
     mov bx, 0
 
-    change_pos_5:
+    change_pos_4:
         mov dl, byte[linha_2 + bx]
         mov byte[linha_1 + bx], dl
         inc bx
-        loop change_pos_5
+        loop change_pos_4
     
     pop dx
     pop cx
     pop bx
     ret
-
-zera_line1:
-    pusha
-
-    mov cx, 302
-    mov bx, 0
-
-    change_pos_6:
-        mov byte[linha_1 + bx], 0
-        inc bx
-        loop change_pos_6
-    
-    popa
-    ret
-
-change_zera_line3:
-    push bx
-    push cx
-    push dx
-
-    mov cx, 302
-    mov bx, 0
-
-    change_pos_7:
-        mov byte[linha_1 + bx], 0
-        inc bx
-        loop change_pos_7
-    
-    pop dx
-    pop cx
-    pop bx
-    ret
-
-zera_line_aux:
-    pusha
-
-    mov cx, 300
-    mov bx, 0
-
-    change_pos_8:
-        mov byte[linha_aux + bx], 0
-        inc bx
-        loop change_pos_8
-    
-    popa
-    ret
-
 
 open_file:
-    pusha
     mov ax, 3d00h 		; abre arquivo em read only
     mov dx, filename	; nome do arquivo
     int 21h
     mov [file_handler], ax ;atualiza o buffer
-    popa
     ret
 
 close_file:
-    pusha
     ;fecha o arquivo
     mov ah, 3eh
     mov bx, [file_handler]
     int 21h
-    popa
     ret
 
 printa_layout:
@@ -1073,10 +1100,10 @@ current_col		dw	0
 current_char    db  0
 intensity       db  0
 
-linha_1: 	times 	302		resb	0
-linha_2: 	times 	302		resb	0
-linha_3: 	times 	302		resb	0
-linha_aux: 	times	300		resb	0
+linha_1: 	times 	302		db	0
+linha_2: 	times 	302		db	0
+linha_3: 	times 	302		db	0
+linha_aux: 	times	300		db	0
 
 buffer_size equ		1200
 buffer 		resb 	buffer_size
