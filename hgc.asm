@@ -48,9 +48,9 @@ mouse:
     jbe  func_botao_passa_baixa
 
     cmp  word[mouseX], 470		;checa se é o botão passa-alta
-    jbe  func_botao_sair
+    jbe  func_botao_passa_alta
 
-    jmp func_botao_sair
+    jmp func_botao_gradiente
 
 func_botao_abrir:
     call printa_layout
@@ -70,7 +70,7 @@ func_botao_abrir:
 
 error_opening:
     mov byte[cor], vermelho
-    call printa_abrir
+    call printa_erro
 
     jmp mouse
 
@@ -92,10 +92,45 @@ func_botao_passa_baixa:
     mov	 byte[cor], amarelo
     call printa_passa_baixa
 
+    mov byte[filter_type], 0
     call open_file
     jc error_opening
 
-    call plota_passa_baixa
+    call plota_filtro
+    call close_file
+    
+    jmp mouse
+
+
+func_botao_passa_alta:
+    call printa_layout
+    mov	 byte[cor], amarelo
+    call printa_passa_alta
+
+    mov byte[filter_type], 1
+    call open_file
+    jc error_opening
+
+    call plota_filtro
+    call close_file
+   
+    call close_file
+    
+    jmp mouse
+
+
+func_botao_gradiente:
+    call printa_layout
+    mov	 byte[cor], amarelo
+    call printa_gradiente
+
+    mov byte[filter_type], 2
+    call open_file
+    jc error_opening
+
+    call plota_filtro
+    call close_file
+   
     call close_file
     
     jmp mouse
@@ -164,95 +199,362 @@ plota_image_abrir:
         ret
 
 
-plota_passa_baixa:
+plota_passa_baixa_aux:
     mov word[j], 388
-    mov word[i], 301
+
+    loop_aux:
+        cmp word[j], 88
+        je end_loop_aux
+
+        call read_line
+        call plota_linha_aux
+
+        dec word[j]
+
+        jmp loop_aux
+    
+    end_loop_aux:
+        mov word[j], 0
+        ret
+
+plota_filtro:
+    mov word[j], 388
     
     call reseta_buffer
     inc word[contador]
 
-    passa_baixa:
-        cmp word[j], 388
-        je pad_top
+    filtro:
+        ;prepara as linhas pra primeira passada da convolucao
+        call zera_line_1 ; determina linha 1 como linha de pad
 
-        cmp word[j], 88
-        je pad_bottom
+        call read_line
+        call copy_aux_to_linha2
 
+        call read_line
+        call copy_aux_to_linha3 
 
-        call one_step_baixa
+        call apply_filter ; passa mascara sobre as 3 linhas iniciais
         call plota_linha_aux
+        
         dec word[j]
+        make_mid_convolution:
+            cmp word[j], 89
+            je pad_bottom
 
-        pad_top:
-            call zera_line_1  
-
-            call read_line
-            call copy_aux_to_linha2
+            call copy_line2_to_line1
+            call copy_line3_to_line2
 
             call read_line
             call copy_aux_to_linha3
-
-            call one_step_baixa
+            
+            call apply_filter
             call plota_linha_aux
+
             dec word[j]
+            jmp make_mid_convolution
 
-            jmp passa_baixa
-        
-        config_pad_bottom:
+            pad_bottom:
+                call copy_line2_to_line1
 
+                call read_line
+                call copy_aux_to_linha2
+
+                call zera_line_3
+
+                call apply_filter
+                call plota_linha_aux
+                
+                mov word[j], 388
+                ret
+
+apply_filter:
+    cmp byte[filter_type], 0
+    je aplica_passa_baixa
+
+    cmp byte[filter_type], 1
+    je aplica_passa_alta
+
+    call one_step_gradiente
     ret
 
+    aplica_passa_baixa:
+        call one_step_baixa
+        ret
+    
+    aplica_passa_alta:
+        call one_step_alta
+        ret
+
 one_step_baixa:
-    mov word[current_col], 1
-    mov word[pos_line], 0
     call zera_line_aux
 
-    loop_one_step:
+    mov word[pos_line], 0
+    mov word[current_col], 1
+
+    loop_one_step_baixa:
         mov ax, 0
         mov dx, 0
         mov bx, 0
+        mov cx, 0
 
         mov bx, word[current_col]
         inc word[current_col]
 
-        mov al, byte[linha_1 + bx]
-        mov dl, byte[linha_1 + bx - 1]
-        add ax, dx
+        cmp word[current_col], 302
+        je end_step_baixa
         
+        mov dl, byte[linha_1 + bx]
+        add ax, dx
+        mov dx, 0
+
+        mov dl, byte[linha_1 + bx - 1]
+        add al, dl
+        mov dx, 0
+
         mov dl, byte[linha_1 + bx + 1]
         add ax, dx
+        mov dx, 0
 
         mov dl, byte[linha_2 + bx]
         add ax, dx
+        mov dx, 0
 
         mov dl, byte[linha_2 + bx - 1]
         add ax, dx
+        mov dx, 0
         
         mov dl, byte[linha_2 + bx + 1]
         add ax, dx
+        mov dx, 0
 
         mov dl, byte[linha_3 + bx]
         add ax, dx
+        mov dx, 0
 
         mov dl, byte[linha_3 + bx - 1]
         add ax, dx
+        mov dx, 0
         
         mov dl, byte[linha_3 + bx + 1]
         add ax, dx
 
-        mov bl, 9
-        div bl ; temos o resultado da convolucao em al pra um pixel
+        mov cl, 9
+        div cl  ;temos o resultado da convolucao em al pra um pixel
 
         mov bx, word[pos_line]
-        mov byte[linha_aux + bx], al
-
+        mov byte[linha_aux + bx], al   
+        
         inc word[pos_line]
-        dec word[j]
+        jmp  loop_one_step_baixa
 
-        cmp word[current_col], 301
-        jne loop_one_step
+    end_step_baixa:
+        mov word[current_col], 1
+        mov word[pos_line], 0
+
+        ret
+
+one_step_alta:
+    call zera_line_aux
+
+    mov word[pos_line], 0
+    mov word[current_col], 1
+
+    loop_one_step_alta:
+        mov ax, 0
+        mov dx, 0
+        mov bx, 0
+        mov cx, 0
+
+        mov bx, word[current_col]
+        inc word[current_col]
+
+        cmp word[current_col], 302
+        je end_step_alta
+        
+        mov al, byte[linha_1 + bx]
+        mov cl, -1
+        imul cl
+        add dx, ax
+
+        mov al, byte[linha_1 + bx - 1]
+        mov cl, -1
+        imul cl
+        add dx, ax
+
+        mov al, byte[linha_1 + bx + 1]
+        mov cl, -1
+        imul cl
+        add dx, ax
+
+        mov al, byte[linha_2 + bx]
+        mov cl, 9
+        imul cl
+        add dx, ax
+
+        mov al, byte[linha_2 + bx - 1]
+        mov cl, -1
+        imul cl
+        add dx, ax
+        
+        mov al, byte[linha_2 + bx + 1]
+        mov cl, -1
+        imul cl
+        add dx, ax
+
+        mov al, byte[linha_3 + bx]
+        mov cl, -1
+        imul cl
+        add dx, ax
+
+        mov al, byte[linha_3 + bx - 1]
+        mov cl, -1
+        imul cl
+        add dx, ax
+
+        mov al, byte[linha_3 + bx + 1]
+        mov cl, -1
+        imul cl
+        add dx, ax
+
+        mov bx, word[pos_line]
+        mov byte[linha_aux + bx], dl   
+        
+        inc word[pos_line]
+        jmp  loop_one_step_alta
+
+    end_step_alta:
+        mov word[current_col], 1
+        mov word[pos_line], 0
+
+        ret
+
+one_step_gradiente:
+    call zera_line_aux
+
+    mov word[pos_line], 0
+    mov word[current_col], 1
+
+    loop_one_step_gradiente:
+        mov ax, 0
+        mov dx, 0
+        mov bx, 0
+        mov cx, 0
+        mov word[sum_gx], 0
+        mov word[sum_gy], 0
+
+        mov bx, word[current_col]
+        inc word[current_col]
+
+        cmp word[current_col], 302
+        jne step_gradiente
+        
+        ;acabou convolucao
+        mov word[current_col], 1
+        mov word[pos_line], 0
+
+        ret
+
+        ;aplica proximo passo
+        step_gradiente:
+            mov al, byte[linha_1 + bx]
+            mov cl, -2
+            imul cl
+            add word[sum_gx], ax
+            mov ax, 0
+
+            mov al, byte[linha_1 + bx - 1]
+            mov cl, -1
+            imul cl
+            add word[sum_gx], ax
+            add word[sum_gy], ax
+            mov ax, 0
+
+            mov al, byte[linha_1 + bx + 1]
+            add word[sum_gy], ax
+            mov cl, -1
+            imul cl
+            add word[sum_gx], ax
+            mov ax, 0
+
+            mov al, byte[linha_2 + bx - 1]
+            mov cl, -2
+            imul cl
+            add word[sum_gy], ax
+            mov ax, 0
     
+            mov al, byte[linha_2 + bx + 1]
+            mov cl, 2
+            imul cl
+            add word[sum_gy], ax
+            mov ax, 0
+        
+            mov al, byte[linha_3 + bx]
+            mov cl, 2
+            imul cl
+            add word[sum_gx], ax
+            mov ax, 0      
+
+            mov al, byte[linha_3 + bx - 1]
+            add word[sum_gx], ax
+            mov cl, -1
+            imul cl
+            add word[sum_gy], ax
+            mov ax, 0
+        
+            mov al, byte[linha_3 + bx + 1]
+            add word[sum_gx], ax
+            add word[sum_gy], ax
+            mov ax, 0
+
+            call modulo_gx
+            call modulo_gy
+
+            mov bx, word[pos_line]
+            inc word[pos_line]
+
+            mov ax, word[sum_gx]
+            add ax, word[sum_gy]
+
+            mov byte[linha_aux + bx], al   
+
+            jmp  loop_one_step_gradiente
+
+modulo_gx:
+    push ax
+    mov ax, word[sum_gx]
+    mov cx, 0
+    
+    cmp ax, 0
+    jge positivo_gx
+
+    mov cl, -1
+    imul cl
+    mov word[sum_gx], ax
+    pop ax
     ret
+
+    positivo_gx:
+        pop ax
+
+        ret
+
+modulo_gy:
+    push ax
+    
+    mov ax, word[sum_gy]
+    cmp ax, 0
+    jge positivo_gy
+
+    mov cl, -1
+    imul cl
+    mov word[sum_gy], ax
+    pop ax
+    ret
+
+    positivo_gy:
+        pop ax
+
+        ret
 
 read_one_char:
     push ax
@@ -301,11 +603,15 @@ read_line: ;le 300 numeros do arquivo
             cmp word[current_col], 300
             jne loop_read_line
 
-    mov word[pos_line], 0
+    mov word[current_col], 0
     ret
 
 
 plota_linha_aux:
+    push ax
+    push bx
+    push cx
+
     mov ax, 0
     mov bx, 0
     mov cx, 300
@@ -321,9 +627,16 @@ plota_linha_aux:
         inc word[i]
         loop printa
     
+    mov word[pos_line], 0
+
+    pop ax
+    pop bx
+    pop cx
     ret
 
-plot_pixel: ; prepara a plotagem de um pixel para a funcao de passa baixa
+plot_pixel: ; prepara a plotagem de um pixel
+    push ax
+    push bx
     mov ax, 0
     mov bx, 0
 
@@ -339,6 +652,8 @@ plot_pixel: ; prepara a plotagem de um pixel para a funcao de passa baixa
     
     call plot_xy ;printa o pixel
     
+    pop ax
+    pop bx
     ret
 
 zera_line_aux:
@@ -377,6 +692,24 @@ zera_line_1:
     pop cx
     ret
 
+zera_line_2:
+    push dx
+    push bx
+    push cx
+
+    mov cx, 302
+    mov bx, 0
+
+    change_pos_9:
+        mov byte[linha_2 + bx], 0
+        inc bx
+        loop change_pos_2
+    
+    pop dx
+    pop bx
+    pop cx
+    ret
+
 zera_line_3:
     push dx
     push bx
@@ -402,10 +735,13 @@ copy_aux_to_linha1:
 
     mov cx, 300
     mov bx, 0
+    mov word[current_col], 0
 
     change_pos_4:
+        mov bx, word[current_col]
+        inc word[current_col]
         mov dl, byte[linha_aux + bx]
-        mov byte[linha1 + bx + 1], dl
+        mov byte[linha_1 + bx + 1], dl
 
         loop change_pos_4
 
@@ -421,10 +757,13 @@ copy_aux_to_linha2:
 
     mov cx, 300
     mov bx, 0
+    mov word[current_col], 0
 
     change_pos_5:
+        mov bx, word[current_col]
+        inc word[current_col]
         mov dl, byte[linha_aux + bx]
-        mov byte[linha2 + bx + 1], dl
+        mov byte[linha_2 + bx + 1], dl
 
         loop change_pos_5
 
@@ -440,10 +779,13 @@ copy_aux_to_linha3:
 
     mov cx, 300
     mov bx, 0
+    mov word[current_col], 0
 
     change_pos_6:
+        mov bx, word[current_col]
+        inc word[current_col]
         mov dl, byte[linha_aux + bx]
-        mov byte[linha3 + bx + 1], dl
+        mov byte[linha_3 + bx + 1], dl
 
         loop change_pos_6
 
@@ -459,12 +801,15 @@ copy_line3_to_line2:
 
     mov cx, 302
     mov bx, 0
+    mov word[current_col], 0
 
     change_pos_7:
-        mov dl, byte[linha_3 + bx]
-        mov byte[linha_2 + bx], dl
+        mov bx, word[current_col]
+        inc word[current_col]
+        mov al, byte[linha_3 + bx]
+        mov byte[linha_2 + bx], al
         inc bx
-        loop change_pos_4
+        loop change_pos_7
     
     pop dx
     pop cx
@@ -478,12 +823,15 @@ copy_line2_to_line1:
 
     mov cx, 302
     mov bx, 0
+    mov word[current_col], 0
 
-    change_pos_4:
-        mov dl, byte[linha_2 + bx]
-        mov byte[linha_1 + bx], dl
+    change_pos_8:
+        mov bx, word[current_col]
+        inc word[current_col]
+        mov al, byte[linha_2 + bx]
+        mov byte[linha_1 + bx], al
         inc bx
-        loop change_pos_4
+        loop change_pos_8
     
     pop dx
     pop cx
@@ -774,7 +1122,7 @@ l6:
 printa_erro:
     mov 	cx,4 ;qtd caracteres
     mov		bx,0
-    mov		dh,150 ;linha
+    mov		dh,10 ;linha
     mov		dl,60 ;coluna
 
 l7:
@@ -1088,15 +1436,18 @@ amarelo		equ		14
 branco_intenso	equ		15
 
 modo_anterior	db		0
-i	dw	0
-j	dw	0
-deltay		dw		0
-deltax		dw		0
-contador	dw		0
-pos_line	dw		0
+i	            dw	0
+j	            dw	0
+deltay		    dw	0
+deltax		    dw	0
+contador	    dw	0
+pos_line	    dw	0
 current_line	dw	0
 current_col		dw	0
+sum_gx          dw  0
+sum_gy          dw  0
 
+filter_type     db  0 ;0 = passa baixa, 1 = passa alta, 2 = gradiente
 current_char    db  0
 intensity       db  0
 
@@ -1107,7 +1458,7 @@ linha_aux: 	times	300		db	0
 
 buffer_size equ		1200
 buffer 		resb 	buffer_size
-filename 	db		'imagens/entrada.txt'
+filename 	db		'original.txt'
 file_handler		dw		0
 
 mensagem_nome    	db  		'Humberto Giuri, Sistema Embarcados I - 2022/1' ; 45 caracteres
