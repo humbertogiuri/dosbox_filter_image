@@ -439,8 +439,7 @@ one_step_gradiente:
         mov dx, 0
         mov bx, 0
         mov cx, 0
-        mov word[sum_gx], 0
-        mov word[sum_gy], 0
+        
 
         mov bx, word[current_col]
         inc word[current_col]
@@ -451,109 +450,167 @@ one_step_gradiente:
         ;acabou convolucao
         mov word[current_col], 1
         mov word[pos_line], 0
-
         ret
 
         ;aplica proximo passo
         step_gradiente:
+            ;***********GX**********
             mov al, byte[linha_1 + bx]
             mov cl, -2
             imul cl
-            add word[sum_gx], ax
+            add dx, ax
             mov ax, 0
 
             mov al, byte[linha_1 + bx - 1]
             mov cl, -1
             imul cl
-            add word[sum_gx], ax
-            add word[sum_gy], ax
+            add dx, ax
             mov ax, 0
 
             mov al, byte[linha_1 + bx + 1]
-            add word[sum_gy], ax
             mov cl, -1
             imul cl
-            add word[sum_gx], ax
+            add dx, ax
+            mov ax, 0
+
+            mov al, byte[linha_2 + bx]
+            mov cl, 0
+            imul cl
+            add dx, ax
+            mov ax, 0
+
+            mov al, byte[linha_2 + bx - 1]
+            mov cl, 0
+            imul cl
+            add dx, ax
+            mov ax, 0
+            
+            mov al, byte[linha_2 + bx + 1]
+            mov cl, 0
+            imul cl
+            add dx, ax
+            mov ax, 0
+
+            mov al, byte[linha_3 + bx]
+            mov cl, 2
+            imul cl
+            add dx, ax
+            mov ax, 0
+
+            mov al, byte[linha_3 + bx - 1]
+            mov cl, 1
+            imul cl
+            add dx, ax
+            mov ax, 0
+
+            mov al, byte[linha_3 + bx + 1]
+            mov cl, 1
+            imul cl
+            add dx, ax
+            mov ax, 0
+
+            mov byte[gx], dl
+            ;*********GY********
+            mov ax, 0
+            mov dx, 0
+
+            mov al, byte[linha_1 + bx]
+            mov cl, 0
+            imul cl
+            add dx, ax
+            mov ax, 0
+
+            mov al, byte[linha_1 + bx - 1]
+            mov cl, -1
+            imul cl
+            add dx, ax
+            mov ax, 0
+
+            mov al, byte[linha_1 + bx + 1]
+            mov cl, 1
+            imul cl
+            add dx, ax
+            mov ax, 0
+
+            mov al, byte[linha_2 + bx]
+            mov cl, 0
+            imul cl
+            add dx, ax
             mov ax, 0
 
             mov al, byte[linha_2 + bx - 1]
             mov cl, -2
             imul cl
-            add word[sum_gy], ax
+            add dx, ax
             mov ax, 0
-    
+            
             mov al, byte[linha_2 + bx + 1]
             mov cl, 2
             imul cl
-            add word[sum_gy], ax
+            add dx, ax
             mov ax, 0
-        
+
             mov al, byte[linha_3 + bx]
-            mov cl, 2
+            mov cl, 0
             imul cl
-            add word[sum_gx], ax
-            mov ax, 0      
+            add dx, ax
+            mov ax, 0
 
             mov al, byte[linha_3 + bx - 1]
-            add word[sum_gx], ax
             mov cl, -1
             imul cl
-            add word[sum_gy], ax
+            add dx, ax
             mov ax, 0
-        
+
             mov al, byte[linha_3 + bx + 1]
-            add word[sum_gx], ax
-            add word[sum_gy], ax
-            mov ax, 0
+            mov cl, 1
+            imul cl
+            add dx, ax
+
+            mov byte[gy], dl
 
             call modulo_gx
             call modulo_gy
 
+            mov ax, 0
+            mov al, byte[gx]
+            add al, byte[gy]
+            
             mov bx, word[pos_line]
             inc word[pos_line]
-
-            mov ax, word[sum_gx]
-            add ax, word[sum_gy]
 
             mov byte[linha_aux + bx], al   
 
             jmp  loop_one_step_gradiente
 
 modulo_gx:
-    push ax
-    mov ax, word[sum_gx]
+    mov ax, 0
+    mov al, byte[gx]
     mov cx, 0
-    
-    cmp ax, 0
+
+    cmp byte[gx], 0
     jge positivo_gx
 
-    mov cl, -1
-    imul cl
-    mov word[sum_gx], ax
-    pop ax
+    mov bl, -1
+    imul bl
+    mov byte[gx], al
     ret
 
     positivo_gx:
-        pop ax
-
         ret
 
 modulo_gy:
-    push ax
-    
-    mov ax, word[sum_gy]
-    cmp ax, 0
+    mov ax, 0
+    mov al, byte[gy]
+    cmp byte[gy], 0
     jge positivo_gy
 
-    mov cl, -1
-    imul cl
-    mov word[sum_gy], ax
-    pop ax
+    mov bl, -1
+    imul bl
+    mov byte[gy], al
     ret
 
     positivo_gy:
-        pop ax
-
         ret
 
 read_one_char:
@@ -1444,9 +1501,9 @@ contador	    dw	0
 pos_line	    dw	0
 current_line	dw	0
 current_col		dw	0
-sum_gx          dw  0
-sum_gy          dw  0
 
+gx          dw  0
+gy          dw  0
 filter_type     db  0 ;0 = passa baixa, 1 = passa alta, 2 = gradiente
 current_char    db  0
 intensity       db  0
