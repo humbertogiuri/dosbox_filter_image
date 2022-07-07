@@ -282,7 +282,7 @@ one_step_baixa:
         mov bx, word[current_col]
         inc word[current_col]
 
-        cmp word[current_col], 302
+        cmp word[current_col], 301
         je end_step_baixa
         
         mov dl, byte[linha_1 + bx]
@@ -350,7 +350,7 @@ one_step_alta:
         mov bx, word[current_col]
         inc word[current_col]
 
-        cmp word[current_col], 302
+        cmp word[current_col], 301
         je end_step_alta
         
         mov al, byte[linha_1 + bx]
@@ -426,7 +426,7 @@ one_step_gradiente:
         mov bx, word[current_col]
         inc word[current_col]
 
-        cmp word[current_col], 302
+        cmp word[current_col], 301
         jne step_gradiente
         
         ;acabou convolucao
@@ -1500,7 +1500,7 @@ linha_aux: 	times	300		db	0
 
 buffer_size equ		1200
 buffer 		resb 	buffer_size
-filename 	db		'imagens/marco.txt'
+filename 	db		'original.txt'
 file_handler		dw		0
 
 mensagem_nome    	db  		'Humberto Giuri, Sistema Embarcados I - 2022/1' ; 45 caracteres

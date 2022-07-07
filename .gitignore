@@ -2,5 +2,5 @@ debug.exe
 *.LST
 *.OBJ
 HGC.EXE
-*.pdf
+EXEC.EXE
 imagens/
