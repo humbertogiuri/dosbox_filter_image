@@ -1,4 +1,6 @@
 debug.exe
 *.LST
 *.OBJ
-EXEC.EXE
+HGC.EXE
+*.pdf
+imagens/

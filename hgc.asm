@@ -16,6 +16,7 @@ segment code
     mov     	ah,0
     int     	10h
 
+    
 main:
     call printa_layout
 
@@ -59,7 +60,7 @@ func_botao_abrir:
 
     call open_file
     jc error_opening
-
+    mov [file_handler], ax
     mov word[i], 0
     mov word[j], 388
     
@@ -78,6 +79,8 @@ func_botao_sair:
     call printa_layout
     mov	 byte[cor], amarelo
     call printa_sair
+    
+    call close_file
 
     mov  ah,0   			; set video mode
     mov  al,[modo_anterior]   	; modo anterior
@@ -95,7 +98,7 @@ func_botao_passa_baixa:
     mov byte[filter_type], 0
     call open_file
     jc error_opening
-
+    mov [file_handler], ax
     call plota_filtro
     call close_file
     
@@ -110,9 +113,8 @@ func_botao_passa_alta:
     mov byte[filter_type], 1
     call open_file
     jc error_opening
-
+    mov [file_handler], ax
     call plota_filtro
-    call close_file
    
     call close_file
     
@@ -127,9 +129,8 @@ func_botao_gradiente:
     mov byte[filter_type], 2
     call open_file
     jc error_opening
-
+    mov [file_handler], ax
     call plota_filtro
-    call close_file
    
     call close_file
     
@@ -196,25 +197,6 @@ plota_image_abrir:
         int 21h
         
         pop ax
-        ret
-
-
-plota_passa_baixa_aux:
-    mov word[j], 388
-
-    loop_aux:
-        cmp word[j], 88
-        je end_loop_aux
-
-        call read_line
-        call plota_linha_aux
-
-        dec word[j]
-
-        jmp loop_aux
-    
-    end_loop_aux:
-        mov word[j], 0
         ret
 
 plota_filtro:
@@ -896,17 +878,20 @@ copy_line2_to_line1:
     ret
 
 open_file:
-    mov ax, 3d00h 		; abre arquivo em read only
+    mov ah, 3dh 		; abre arquivo em read only
+    mov al, 0
     mov dx, filename	; nome do arquivo
     int 21h
-    mov [file_handler], ax ;atualiza o buffer
+
     ret
 
 close_file:
     ;fecha o arquivo
     mov ah, 3eh
     mov bx, [file_handler]
+    mov word[file_handler], 0
     int 21h
+    
     ret
 
 printa_layout:
@@ -1515,7 +1500,7 @@ linha_aux: 	times	300		db	0
 
 buffer_size equ		1200
 buffer 		resb 	buffer_size
-filename 	db		'original.txt'
+filename 	db		'imagens/marco.txt'
 file_handler		dw		0
 
 mensagem_nome    	db  		'Humberto Giuri, Sistema Embarcados I - 2022/1' ; 45 caracteres
