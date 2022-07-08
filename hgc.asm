@@ -1,3 +1,7 @@
+;Nome: Humberto Giuri Calente
+;Matricula: 2018103846
+;Turma: 5.01
+
 segment code
 ..start:
     mov 		ax,data
@@ -320,8 +324,8 @@ one_step_baixa:
         mov dl, byte[linha_3 + bx + 1]
         add ax, dx
 
-        mov cl, 9
-        div cl  ;temos o resultado da convolucao em al pra um pixel
+        mov dl, 9
+        div dl  ;temos o resultado da convolucao em al pra um pixel
 
         mov bx, word[pos_line]
         mov byte[linha_aux + bx], al   
@@ -351,64 +355,90 @@ one_step_alta:
         inc word[current_col]
 
         cmp word[current_col], 301
-        je end_step_alta
+        jne step_alta
         
-        mov al, byte[linha_1 + bx]
-        mov cl, -1
-        imul cl
-        add dx, ax
-
-        mov al, byte[linha_1 + bx - 1]
-        mov cl, -1
-        imul cl
-        add dx, ax
-
-        mov al, byte[linha_1 + bx + 1]
-        mov cl, -1
-        imul cl
-        add dx, ax
-
-        mov al, byte[linha_2 + bx]
-        mov cl, 9
-        imul cl
-        add dx, ax
-
-        mov al, byte[linha_2 + bx - 1]
-        mov cl, -1
-        imul cl
-        add dx, ax
-        
-        mov al, byte[linha_2 + bx + 1]
-        mov cl, -1
-        imul cl
-        add dx, ax
-
-        mov al, byte[linha_3 + bx]
-        mov cl, -1
-        imul cl
-        add dx, ax
-
-        mov al, byte[linha_3 + bx - 1]
-        mov cl, -1
-        imul cl
-        add dx, ax
-
-        mov al, byte[linha_3 + bx + 1]
-        mov cl, -1
-        imul cl
-        add dx, ax
-
-        mov bx, word[pos_line]
-        mov byte[linha_aux + bx], dl   
-        
-        inc word[pos_line]
-        jmp  loop_one_step_alta
-
-    end_step_alta:
         mov word[current_col], 1
         mov word[pos_line], 0
 
         ret
+
+        step_alta:
+
+            mov al, byte[linha_1 + bx]
+            mov dx, -1
+            imul dx
+            
+            mov di, ax
+            mov ax, 0
+
+            mov al, byte[linha_1 + bx - 1]
+            mov dx, -1
+            imul dx
+            add ax, di
+
+            mov di, ax
+            mov ax, 0
+
+            mov al, byte[linha_1 + bx + 1]
+            mov dx, -1
+            imul dx
+            add ax, di
+
+            mov di, ax
+            mov ax, 0
+
+            mov al, byte[linha_2 + bx]
+            mov dx, 9
+            imul dx
+            add ax, di
+
+            mov di, ax
+            mov ax, 0
+
+            mov al, byte[linha_2 + bx - 1]
+            mov dx, -1
+            imul dx
+            add ax, di
+
+            mov di, ax
+            mov ax, 0
+            
+            mov al, byte[linha_2 + bx + 1]
+            mov dx, -1
+            imul dx
+            add ax, di
+
+            mov di, ax
+            mov ax, 0
+
+            mov al, byte[linha_3 + bx]
+            mov dx, -1
+            imul dx
+            add ax, di
+
+            mov di, ax
+            mov ax, 0
+
+            mov al, byte[linha_3 + bx - 1]
+            mov dx, -1
+            imul dx
+            add ax, di
+
+            mov di, ax
+            mov ax, 0
+
+            mov al, byte[linha_3 + bx + 1]
+            mov dx, -1
+            imul dx
+            add ax, di
+
+            call trunca_ax
+
+            mov bx, word[pos_line]
+            mov byte[linha_aux + bx], al   
+            
+            inc word[pos_line]
+            jmp  loop_one_step_alta
 
 one_step_gradiente:
     call zera_line_aux
@@ -1471,7 +1501,7 @@ linha_aux: 	times	300		db	0
 
 buffer_size equ		1200
 buffer 		resb 	buffer_size
-filename 	db		'imagens/marco.txt'
+filename 	db		'original.txt'
 file_handler		dw		0
 
 mensagem_nome    	db  		'Humberto Giuri, Sistema Embarcados I - 2022/1' ; 45 caracteres
