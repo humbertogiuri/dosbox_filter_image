@@ -421,7 +421,7 @@ one_step_gradiente:
         mov dx, 0
         mov bx, 0
         mov cx, 0
-        
+        mov di, 0
 
         mov bx, word[current_col]
         inc word[current_col]
@@ -438,125 +438,107 @@ one_step_gradiente:
         step_gradiente:
             ;***********GX**********
             mov al, byte[linha_1 + bx]
-            mov cl, -2
-            imul cl
-            add dx, ax
+            mov dx, -2
+            imul dx
+            
+            mov di, ax
             mov ax, 0
 
             mov al, byte[linha_1 + bx - 1]
-            mov cl, -1
-            imul cl
-            add dx, ax
+            mov dx, -1
+            imul dx
+            add ax, di
+            
+            mov di, ax
             mov ax, 0
 
             mov al, byte[linha_1 + bx + 1]
-            mov cl, -1
-            imul cl
-            add dx, ax
-            mov ax, 0
+            mov dx, -1
+            imul dx
+            add ax, di
 
-            mov al, byte[linha_2 + bx]
-            mov cl, 0
-            imul cl
-            add dx, ax
-            mov ax, 0
-
-            mov al, byte[linha_2 + bx - 1]
-            mov cl, 0
-            imul cl
-            add dx, ax
-            mov ax, 0
-            
-            mov al, byte[linha_2 + bx + 1]
-            mov cl, 0
-            imul cl
-            add dx, ax
+            mov di, ax
             mov ax, 0
 
             mov al, byte[linha_3 + bx]
-            mov cl, 2
-            imul cl
-            add dx, ax
+            mov dx, 2
+            imul dx
+            add ax, di
+
+            mov di, ax
             mov ax, 0
 
             mov al, byte[linha_3 + bx - 1]
-            mov cl, 1
-            imul cl
-            add dx, ax
+            mov dx, 1
+            imul dx
+            add ax, di
+
+            mov di, ax
             mov ax, 0
 
             mov al, byte[linha_3 + bx + 1]
-            mov cl, 1
-            imul cl
-            add dx, ax
-            mov ax, 0
+            mov dx, 1
+            imul dx
+            add ax, di
+            
+            call mod_ax
+            
+            mov word[gx], ax
 
-            mov byte[gx], dl
             ;*********GY********
             mov ax, 0
             mov dx, 0
-
-            mov al, byte[linha_1 + bx]
-            mov cl, 0
-            imul cl
-            add dx, ax
-            mov ax, 0
+            mov di, 0
 
             mov al, byte[linha_1 + bx - 1]
-            mov cl, -1
-            imul cl
-            add dx, ax
+            mov dx, -1
+            imul dx
+            
+            mov di, ax
             mov ax, 0
 
             mov al, byte[linha_1 + bx + 1]
-            mov cl, 1
-            imul cl
-            add dx, ax
-            mov ax, 0
+            mov dx, 1
+            imul dx
+            add ax, di
 
-            mov al, byte[linha_2 + bx]
-            mov cl, 0
-            imul cl
-            add dx, ax
+            mov di, ax
             mov ax, 0
 
             mov al, byte[linha_2 + bx - 1]
-            mov cl, -2
-            imul cl
-            add dx, ax
+            mov dx, -2
+            imul dx
+            add ax, di
+
+            mov di, ax
             mov ax, 0
             
             mov al, byte[linha_2 + bx + 1]
-            mov cl, 2
-            imul cl
-            add dx, ax
+            mov dx, 2
+            imul dx
+            add ax, di
+
+            mov di, ax
             mov ax, 0
 
-            mov al, byte[linha_3 + bx]
-            mov cl, 0
-            imul cl
-            add dx, ax
-            mov ax, 0
 
             mov al, byte[linha_3 + bx - 1]
-            mov cl, -1
-            imul cl
-            add dx, ax
+            mov dx, -1
+            imul dx
+            add ax, di
+
+            mov di, ax 
             mov ax, 0
 
             mov al, byte[linha_3 + bx + 1]
-            mov cl, 1
-            imul cl
-            add dx, ax
+            mov dx, 1
+            imul dx
+            add ax, di
 
-            mov byte[gy], dl
-
-            call modulo_gx
-            call modulo_gy
-
-            mov ax, 0
-            mov al, byte[gx]
-            add al, byte[gy]
+            call mod_ax
+            mov dx, word[gx]
+            add ax, dx
+            call trunca_ax
             
             mov bx, word[pos_line]
             inc word[pos_line]
@@ -565,34 +547,24 @@ one_step_gradiente:
 
             jmp  loop_one_step_gradiente
 
-modulo_gx:
-    mov ax, 0
-    mov al, byte[gx]
-    mov cx, 0
 
-    cmp byte[gx], 0
-    jge positivo_gx
-
-    mov bl, -1
-    imul bl
-    mov byte[gx], al
+mod_ax:
+    cmp ax, -1
+    jle change
     ret
 
-    positivo_gx:
+    change:
+        mov dx, -1
+        imul dx
         ret
 
-modulo_gy:
-    mov ax, 0
-    mov al, byte[gy]
-    cmp byte[gy], 0
-    jge positivo_gy
-
-    mov bl, -1
-    imul bl
-    mov byte[gy], al
+trunca_ax:
+    cmp ax, 255
+    jg  trunca
     ret
 
-    positivo_gy:
+    trunca:
+        mov ax, 255
         ret
 
 read_one_char:
@@ -1488,7 +1460,6 @@ current_line	dw	0
 current_col		dw	0
 
 gx          dw  0
-gy          dw  0
 filter_type     db  0 ;0 = passa baixa, 1 = passa alta, 2 = gradiente
 current_char    db  0
 intensity       db  0
@@ -1500,7 +1471,7 @@ linha_aux: 	times	300		db	0
 
 buffer_size equ		1200
 buffer 		resb 	buffer_size
-filename 	db		'original.txt'
+filename 	db		'imagens/marco.txt'
 file_handler		dw		0
 
 mensagem_nome    	db  		'Humberto Giuri, Sistema Embarcados I - 2022/1' ; 45 caracteres
