@@ -1501,7 +1501,7 @@ linha_aux: 	times	300		db	0
 
 buffer_size equ		1200
 buffer 		resb 	buffer_size
-filename 	db		'original.txt'
+filename 	db		'entrada.txt'
 file_handler		dw		0
 
 mensagem_nome    	db  		'Humberto Giuri, Sistema Embarcados I - 2022/1' ; 45 caracteres
